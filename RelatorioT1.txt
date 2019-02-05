@@ -1,0 +1,340 @@
+Nome: Marcelo Ramos
+Matricula: 1510823
+
+O algoritmo funciona da seguinte maneira:
+Apos o input do usuario, o escalonador atualiza o processo corrente como o primeiro processo do primeiro nivel. A funcao runProcess decide entao o que sera feito do processo apos sua execucao (cair, subir de nivel etc) e o executa, atualizando de 1 em 1 segundo todos (se houverem) os processos realizando IO. Apos a execucao, caso o processo estoure o quantum de tempo, ele e escalonado para o nivel de menor prioridade (ou se mantem, caso estiver no nivel minimo). Caso o processo nao estoure o quantum, o escalonador aguarda o envio de um sinal do processo que dira ou que deseja realizar IO ou que chegou ao fim. Cada sinal dispara um handler diferente que trata o escalonamento do processo. Se for IO, o handler decide se o processo tem que manter, subir ou cair de nivel, e o posiciona ao final do nivel determinado. Se for o termino do processo, o handler o retira do ultimo nivel onde rodou, e da lista de processos.
+Ao realizar e analizar testes, um erro que encontrei foi na sincronizacao do disparo do sinal de IO, e a atualizacao dos IOTimers dos processos, o que resultou em 1s de diferenca em alguns testes (ao menos nos prints, que ocasionalmente ja necessitam de flush). O outro erro foi, o sinal de SIGSTOP enviado pelo escalonador nao chegava a tempo do processo comecar o loop de execucao seguinte, portanto, no codigo de processcode.c existe um SIGSTOP a mais.
+Porem, foi possivel ter uma boa nocao de como funciona um escalonador real, principalmente pois fiz o codigo sozinho.
+
+
+---------------------------------------------------------------------------------------------------
+
+Teste 1:
+
+>exec p1 ( 2, 4, 3)
+>exec p2 ( 3, 2, 5)
+
+Process <3111>
+Process <3112>
+Process <3111>
+Process <3111> Started IO
+Process <3112>
+Process <3112>
+Process <3112> Started IO
+Process <3111> Finished IO
+Process <3111>
+Process <3111>
+Process <3111>
+Process <3112> Finished IO
+Process <3112>
+Process <3112>
+Process <3112> Started IO
+Process <3111>
+Process <3111> Started IO
+Process <3112> Finished IO
+Process <3112>
+Process <3112>
+Process <3111> Finished IO
+Process <3111>
+Process <3111>
+Process <3112>
+Process <3112>
+Process <3112>
+Process <3112> Terminated
+Process <3111>
+Process <3111> Terminated
+Nothing left to run, exiting...
+
+O resultado condiz com o esperado
+
+---------------------------------------------------------------------------------------------------
+
+Teste 2:
+>exec p1 ( 2, 4)
+>exec p2 ( 4, 2)
+>exec p3 ( 1, 5)
+>exec p4 ( 2, 2, 2)
+
+Process <3313>
+Process <3314>
+Process <3315>
+Process <3315> Requested IO
+Process <3316>
+Process <3313>
+Process <3313> Requested IO
+Process <3314>
+Process <3315> Finished IO
+Process <3314>
+Process <3316>
+Process <3316> Requested IO
+Process <3314>
+Process <3313> Finished IO
+Process <3314> Requested IO
+Process <3315>
+Process <3313>
+Process <3315>
+Process <3316> Finished IO
+Process <3315>
+Process <3314> Finished IO
+Process <3313>
+Process <3313>
+Process <3314>
+Process <3314>
+Process <3314> Terminated
+Process <3315>
+Process <3315>
+Process <3315> Terminated
+Process <3313>
+Process <3313> Terminated
+Process <3316>
+Process <3316>
+Process <3316> Requested IO
+Process <3316> Finished IO
+Process <3316>
+Process <3316>
+Process <3316> Terminated
+Nothing left to run, exiting...
+
+o Resultado esta muito proximo do esperado, porem, um desync ocorreu ao enviar o sinal de IO do processo ao escalonador, e a atualizacao dos IOTimers dos processos demorou 1s a mais.
+
+---------------------------------------------------------------------------------------------------
+
+Teste 3:
+>exec p1 ( 5, 2, 3)
+>exec p2 ( 3, 2, 5)
+>exec p3 ( 1, 2, 1)
+
+Process <3428>
+Process <3429>
+Process <3430>
+Process <3430> Requested IO
+Process <3428>
+Process <3428>
+Process <3429>
+Process <3430> Finished IO
+Process <3429>
+Process <3429> Requested IO
+Process <3428>
+Process <3428>
+Process <3428> Requested IO
+Process <3430>
+Process <3429> Finished IO
+Process <3429>
+Process <3429>
+Process <3429> Requested IO
+Process <3430>
+Process <3428> Finished IO
+Process <3430> Requested IO
+Process <3428>
+Process <3428>
+Process <3428> Requested IO
+Process <3429> Finished IO
+Process <3429>
+Process <3430> Finished IO
+Process <3429>
+Process <3429>
+Process <3428> Finished IO
+Process <3429>
+Process <3429>
+Process <3429> Terminated
+Process <3430>
+Process <3430> Terminated
+Process <3428>
+Process <3428>
+Process <3428>
+Process <3428> Terminated
+Nothing left to run, exiting...
+
+Novamente, resultado condiz com o esperado
+
+---------------------------------------------------------------------------------------------------
+
+Teste 4:
+>exec p1 ( 2, 4, 3, 1)
+>exec p2 ( 4, 3)
+Process <3439>
+Process <3440>
+Process <3439>
+Process <3439> Requested IO
+Process <3440>
+Process <3440>
+Process <3440>
+Process <3439> Finished IO
+Process <3440> Requested IO
+Process <3439>
+Process <3439>
+Process <3439>
+Process <3440> Finished IO
+Process <3440>
+Process <3440>
+Process <3439>
+Process <3439> Requested IO
+Process <3440>
+Process <3440> Terminated
+Process <3439> Finished IO
+Process <3439>
+Process <3439>
+Process <3439>
+Process <3439> Requested IO
+Process <3439> Finished IO
+Process <3439>
+Process <3439> Terminated
+Nothing left to run, exiting...
+
+Resultado de acordo com o esperado
+
+---------------------------------------------------------------------------------------------------
+
+Teste 5:
+>exec p1 ( 4, 3, 2)
+Process <3449>
+Process <3449>
+Process <3449>
+Process <3449>
+Process <3449> Requested IO
+Process <3449> Finished IO
+Process <3449>
+Process <3449>
+Process <3449>
+Process <3449> Requested IO
+Process <3449> Finished IO
+Process <3449>
+Process <3449>
+Process <3449> Terminated
+Nothing left to run, exiting...
+
+Resultado de acordo com o esperado
+
+---------------------------------------------------------------------------------------------------
+
+Teste 6:
+>exec p1 ( 10 , 2, 5)
+>exec p2 ( 2, 5, 10)
+>exec p3 ( 4, 4, 4)
+Process <3461>
+Process <3462>
+Process <3463>
+Process <3461>
+Process <3461>
+Process <3462>
+Process <3462> Requested IO
+Process <3463>
+Process <3463>
+Process <3461>
+Process <3462> Finished IO
+Process <3461>
+Process <3461>
+Process <3461>
+Process <3463>
+Process <3463> Requested IO
+Process <3462>
+Process <3462>
+Process <3462>
+Process <3463> Finished IO
+Process <3463>
+Process <3463>
+Process <3462>
+Process <3462>
+Process <3462> Requested IO
+Process <3461>
+Process <3461>
+Process <3461>
+Process <3462> Finished IO
+Process <3461> Requested IO
+Process <3463>
+Process <3463>
+Process <3463> Requested IO
+Process <3462>
+Process <3461> Finished IO
+Process <3462>
+Process <3461>
+Process <3461>
+Process <3463> Finished IO
+Process <3461> Requested IO
+Process <3463>
+Process <3463>
+Process <3462>
+Process <3461> Finished IO
+Process <3462>
+Process <3462>
+Process <3462>
+Process <3463>
+Process <3463>
+Process <3463> Terminated
+Process <3461>
+Process <3461>
+Process <3461>
+Process <3461>
+Process <3461>
+Process <3461> Terminated
+Process <3462>
+Process <3462>
+Process <3462>
+Process <3462>
+Process <3462> Terminated
+Nothing left to run, exiting...
+
+O desync ocorrido no segundo teste aparece tambem nessa execucao
+
+---------------------------------------------------------------------------------------------------
+
+
+Teste 7:
+>exec p1 ( 2, 1)
+>exec p2 ( 15)
+>exec p3 ( 4, 5)
+>exec p4 ( 2, 2)
+
+Process <3534>
+Process <3535>
+Process <3536>
+Process <3537>
+Process <3534>
+Process <3534> Requested IO
+Process <3535>
+Process <3535>
+Process <3536>
+Process <3534> Finished IO
+Process <3536>
+Process <3537>
+Process <3537> Requested IO
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3537> Finished IO
+Process <3535>
+Process <3536>
+Process <3536> Requested IO
+Process <3534>
+Process <3534> Terminated
+Process <3537>
+Process <3537>
+Process <3536> Finished IO
+Process <3537> Requested IO
+Process <3536>
+Process <3536>
+Process <3536>
+Process <3537> Finished IO
+Process <3536>
+Process <3536>
+Process <3536> Terminated
+Process <3537> Terminated
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535>
+Process <3535> Terminated
+Nothing left to run, exiting...
+
+Resultado dentro do esperado
+
+
+
+
+
+
+
